@@ -844,9 +844,13 @@ export class RepositoryView extends React.Component<
       this.commitGraphSidebarRef.current?.focusHistory()
     }
 
-    if (this.focusCompareNeeded) {
+    // Changing sections is asynchronous, so wait until the Compare sidebar is actually rendered
+    if (
+      this.focusCompareNeeded &&
+      this.props.state.selectedSection === RepositorySectionTab.Compare
+    ) {
       this.focusCompareNeeded = false
-      this.compareSidebarRef.current?.focusHistory()
+      this.compareSidebarRef.current?.focusBranchFilter()
     }
   }
 
@@ -879,6 +883,13 @@ export class RepositoryView extends React.Component<
     if (section === RepositorySectionTab.Changes) {
       this.focusChangesNeeded = true
     }
+    this.focusCompareNeeded = section === RepositorySectionTab.Compare
+    if (section === RepositorySectionTab.Compare) {
+      this.props.dispatcher.updateCompareForm(this.props.repository, {
+        filterText: '',
+        showBranchList: true,
+      })
+    }
   }
 
   private onTabClicked = (tab: Tab) => {
@@ -891,6 +902,7 @@ export class RepositoryView extends React.Component<
     if (section === RepositorySectionTab.Changes) {
       this.focusChangesNeeded = true
     }
+    this.focusCompareNeeded = section === RepositorySectionTab.Compare
     if (!!section) {
       this.props.dispatcher.updateCompareForm(this.props.repository, {
         filterText: '',

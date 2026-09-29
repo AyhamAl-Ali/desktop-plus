@@ -535,7 +535,7 @@ export class App extends React.Component<IAppProps, IAppState> {
         )
         return this.updateBranchWithContributionTargetBranch()
       case 'compare-to-branch':
-        return this.showCompare(false)
+        return this.showCompare(true)
       case 'merge-branch':
         this.props.dispatcher.recordMenuInitiatedMerge()
         return this.mergeBranch()
