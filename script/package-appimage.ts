@@ -73,7 +73,7 @@ async function downloadAppImageTool(destination: string) {
 
 async function createAppDir(appDir: string, executableName: string) {
   await rm(appDir, { recursive: true, force: true })
-  await cp(getDistPath(), appDir, { recursive: true })
+  await cp(getDistPath(), appDir, { recursive: true, verbatimSymlinks: true })
   await chmod(appDir, 0o755)
 
   const appRunPath = join(appDir, 'AppRun')
