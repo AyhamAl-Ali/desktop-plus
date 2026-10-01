@@ -136,6 +136,7 @@ export enum PopupType {
   AddRemote = 'AddRemote',
   DeleteWorktreeFailed = 'DeleteWorktreeFailed',
   PullBranchDeleted = 'PullBranchDeleted',
+  PushToRemote = 'PushToRemote',
 }
 
 interface IBasePopup {
@@ -638,5 +639,10 @@ export type PopupDetail =
       repository: Repository
       /** The name of the branch whose remote branch no longer exists. */
       branchName: string
+    }
+  | {
+      type: PopupType.PushToRemote
+      repository: Repository
+      remotes: ReadonlyArray<IRemote>
     }
 export type Popup = IBasePopup & PopupDetail

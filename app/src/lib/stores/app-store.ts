@@ -302,6 +302,7 @@ import {
 } from '../repository-matching'
 import { ForcePushBranchState, getCurrentBranchForcePushState } from '../rebase'
 import { RetryAction, RetryActionType } from '../../models/retry-actions'
+import { IPushTarget } from '../../models/retry-actions'
 import {
   Default as DefaultShell,
   findShellOrDefault,
@@ -6221,6 +6222,23 @@ export class AppStore extends TypedBaseStore<IAppState> {
     })
   }
 
+  /**
+   * Pushes the current branch to the given remote instead of the one it
+   * tracks.
+   *
+   * @param setUpstream - Whether the current branch should track the pushed
+   *                      branch from now on.
+   */
+  public async _pushToRemote(
+    repository: Repository,
+    remote: IRemote,
+    setUpstream: boolean
+  ): Promise<void> {
+    return this.withRefreshedGitHubRepository(repository, repository => {
+      return this.performPush(repository, undefined, { remote, setUpstream })
+    })
+  }
+
   private getBranchToPush(
     repository: Repository,
     options?: PushOptions
@@ -6248,12 +6266,27 @@ export class AppStore extends TypedBaseStore<IAppState> {
     return
   }
 
+  /**
+   * The remote branch to push the given branch to, or null to push it to a
+   * branch with the same name and set it as its upstream.
+   */
+  private getRemoteBranchToPush(
+    branch: Branch,
+    target?: IPushTarget
+  ): string | null {
+    if (target === undefined) {
+      return branch.upstreamWithoutRemote
+    }
+    return target.setUpstream ? null : branch.name
+  }
+
   private async performPush(
     repository: Repository,
-    options?: PushOptions
+    options?: PushOptions,
+    target?: IPushTarget
   ): Promise<void> {
     const state = this.repositoryStateCache.get(repository)
-    const { remote } = state
+    const remote = target?.remote ?? state.remote
     if (remote === null) {
       this._showPopup({
         type: PopupType.PublishRepository,
@@ -6270,7 +6303,9 @@ export class AppStore extends TypedBaseStore<IAppState> {
         return
       }
 
-      const remoteName = branch.upstreamRemoteName || remote.name
+      const remoteName = target
+        ? remote.name
+        : branch.upstreamRemoteName || remote.name
 
       const pushTitle = `Pushing to ${remoteName}`
 
@@ -6301,6 +6336,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
       const retryAction: RetryAction = {
         type: RetryActionType.Push,
         repository,
+        ...(target ? { pushTarget: target } : {}),
       }
 
       // This is most likely not necessary and is only here out of
@@ -6349,7 +6385,7 @@ export class AppStore extends TypedBaseStore<IAppState> {
             repository,
             safeRemote,
             branch.name,
-            branch.upstreamWithoutRemote,
+            this.getRemoteBranchToPush(branch, target),
             gitStore.tagsToPush,
             {
               onHookFailure: this.onHookFailure(() => (aborted = true)),
@@ -6368,7 +6404,10 @@ export class AppStore extends TypedBaseStore<IAppState> {
             return
           }
 
-          gitStore.clearTagsToPush()
+          // Keep the tags queued so they also reach the tracked remote later
+          if (target === undefined || target.setUpstream) {
+            gitStore.clearTagsToPush()
+          }
 
           await gitStore.fetchRemotes([safeRemote], false, fetchProgress => {
             this.updatePushPullFetchProgress(repository, {

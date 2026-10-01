@@ -1809,6 +1809,18 @@ export class Dispatcher {
   }
 
   /**
+   * Pushes the current branch to the given remote instead of the one it
+   * tracks, optionally making the current branch track the pushed branch.
+   */
+  public pushToRemote(
+    repository: Repository,
+    remote: IRemote,
+    setUpstream: boolean
+  ): Promise<void> {
+    return this.appStore._pushToRemote(repository, remote, setUpstream)
+  }
+
+  /**
    * Adds a new remote with the given name and URL and fetches it so that its
    * branches appear in the branches list.
    */
@@ -2645,6 +2657,10 @@ export class Dispatcher {
   public async performRetry(retryAction: RetryAction): Promise<void> {
     switch (retryAction.type) {
       case RetryActionType.Push:
+        if ('pushTarget' in retryAction) {
+          const { remote, setUpstream } = retryAction.pushTarget
+          return this.pushToRemote(retryAction.repository, remote, setUpstream)
+        }
         return this.push(retryAction.repository)
 
       case RetryActionType.Pull:

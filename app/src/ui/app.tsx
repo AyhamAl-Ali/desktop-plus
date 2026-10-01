@@ -251,6 +251,7 @@ import { DeleteWorktreeFailedDialog } from './worktrees/delete-worktree-failed-d
 import { PullBranchDeletedDialog } from './pull-branch-deleted/pull-branch-deleted-dialog'
 import { ManageRemotesDialog } from './manage-remotes/manage-remotes-dialog'
 import { AddRemoteDialog } from './manage-remotes/add-remote-dialog'
+import { PushToRemoteDialog } from './push-to-remote/push-to-remote-dialog'
 import { getEditorOverrideLabel } from '../models/editor-override'
 import { WorktreeEntry } from '../models/worktree'
 import { shouldShowWorktreeDropdown } from '../lib/worktree-dropdown'
@@ -3350,6 +3351,27 @@ export class App extends React.Component<IAppProps, IAppState> {
             onDismissed={onPopupDismissedFn}
           />
         )
+      case PopupType.PushToRemote: {
+        const { tip } = this.props.repositoryStateManager.get(
+          popup.repository
+        ).branchesState
+
+        if (tip.kind !== TipState.Valid) {
+          onPopupDismissedFn()
+          return null
+        }
+
+        return (
+          <PushToRemoteDialog
+            key="push-to-remote"
+            repository={popup.repository}
+            remotes={popup.remotes}
+            branch={tip.branch}
+            dispatcher={this.props.dispatcher}
+            onDismissed={onPopupDismissedFn}
+          />
+        )
+      }
       default:
         return assertNever(popup, `Unknown popup type: ${popup}`)
     }
