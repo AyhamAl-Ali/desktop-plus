@@ -119,6 +119,34 @@
     }
   }
 
+  .list-item-content-wrapper > .draggable {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+  }
+
+  .repository-group-insertion-indicator {
+    &.darwin-circle {
+      &.top {
+        top: 0;
+      }
+      &.bottom {
+        bottom: -4px;
+      }
+    }
+
+    &.darwin-line {
+      &.top {
+        top: 4px;
+      }
+      &.bottom {
+        bottom: 0;
+      }
+    }
+  }
+
   .repository-group-header {
     display: flex;
     align-items: center;
@@ -299,6 +327,34 @@
         text-align: center;
       }
     }
+  }
+}
+
+#repository-group-drag-element {
+  position: absolute;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  max-width: 300px;
+  height: 29px;
+  padding: 0 var(--spacing);
+  pointer-events: none;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  font-weight: var(--font-weight-semibold);
+  border-top: 1px solid var(--box-border-color);
+  border-left: 1px solid var(--box-border-color);
+  box-shadow: 2px 1px 1px 0px var(--box-border-color);
+
+  .octicon {
+    flex-shrink: 0;
+    margin-right: var(--spacing-half);
+    color: var(--text-secondary-color);
+  }
+
+  .label {
+    @include ellipsis;
+    min-width: 0;
   }
 }
 

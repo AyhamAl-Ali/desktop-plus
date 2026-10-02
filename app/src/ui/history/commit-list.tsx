@@ -278,6 +278,10 @@ export class CommitList extends React.Component<
         return
       }
 
+      if (keyboardReorderData.type !== DragType.Commit) {
+        return
+      }
+
       const plural = keyboardReorderData.commits.length === 1 ? '' : 's'
 
       if (insertionIndexPath !== null) {
@@ -792,6 +796,9 @@ export class CommitList extends React.Component<
     data: KeyboardInsertionData
   ): JSX.Element | null => {
     const { emoji, repository } = this.props
+    if (data.type !== DragType.Commit) {
+      return null
+    }
     const { commits } = data
 
     if (commits.length === 0) {
@@ -811,7 +818,7 @@ export class CommitList extends React.Component<
           />
         )
       default:
-        return assertNever(data.type, `Unknown drag element type: ${data}`)
+        return assertNever(data, `Unknown drag element type: ${data}`)
     }
   }
 
