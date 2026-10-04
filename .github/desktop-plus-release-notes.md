@@ -1,8 +1,12 @@
-Desktop Plus v3.6.7
+Desktop Plus v3.6.7-beta2
 
-Upstream: [GitHub Desktop 3.6.7 release notes](https://github.com/desktop/desktop/releases/tag/release-3.6.7)
+Upstream:
+- [GitHub Desktop 3.6.7-beta1 release notes](https://github.com/desktop/desktop/releases/tag/release-3.6.7-beta1)
+- [GitHub Desktop 3.6.7-beta2 release notes](https://github.com/desktop/desktop/releases/tag/release-3.6.7-beta2)
 
 ## Changes and improvements:
+
+- [#244] You can now reorder groups in the repository list sidebar. Simply drag and drop them to your preferred order.
 
 - [#280] If your repository has multiple remotes, you can now choose which one to push to.  
   Right-click on the Pull/Push button and select "Push to other remote...".
