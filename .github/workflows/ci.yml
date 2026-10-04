@@ -371,7 +371,7 @@ jobs:
     # repository variable is set to 'true'
     if: |
       github.event_name == 'push' &&
-      (startsWith(github.ref, 'refs/tags/') || vars.TEST_CODE_SIGNING == 'true')
+      (vars.TEST_CODE_SIGNING == 'true')
     continue-on-error: ${{ !startsWith(github.ref, 'refs/tags/') }}
     timeout-minutes: 360
     env:
@@ -490,7 +490,7 @@ jobs:
 
   release_github:
     name: Create GitHub release
-    needs: [build, sign_windows, compute_version]
+    needs: [build, compute_version]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
