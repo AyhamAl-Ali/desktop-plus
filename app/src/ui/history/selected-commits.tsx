@@ -19,6 +19,8 @@ import {
   CopyRelativeFilePathLabel,
   CopySelectedPathsLabel,
   CopySelectedRelativePathsLabel,
+  CopyFolderPathLabel,
+  CopyRelativeFolderPathLabel,
 } from '../lib/context-menu'
 import { ThrottledScheduler } from '../lib/throttled-scheduler'
 
@@ -27,6 +29,7 @@ import { Resizable } from '../resizable'
 import { showContextualMenu } from '../../lib/menu-item'
 
 import { FileList } from './file-list'
+import { FileTreeViewToggle, getFileTreeView } from '../lib/file-tree-folder'
 import { SeamlessDiffSwitcher } from '../diff/seamless-diff-switcher'
 import { getDotComAPIEndpoint } from '../../lib/api'
 import { IMenuItem } from '../../lib/menu-item'
@@ -110,6 +113,7 @@ interface ISelectedCommitsProps {
 interface ISelectedCommitsState extends IDiffPresentationState {
   readonly isExpanded: boolean
   readonly selectedFiles: ReadonlyArray<CommittedFileChange>
+  readonly treeView: boolean
 }
 
 /** The History component. Contains the commit list, commit summary, and diff. */
@@ -125,6 +129,7 @@ export class SelectedCommits extends DiffPresentationStateComponent<
     this.state = {
       isExpanded: false,
       selectedFiles: [],
+      treeView: getFileTreeView(),
       ...this.createDiffPresentationState(),
     }
   }
@@ -326,6 +331,8 @@ export class SelectedCommits extends DiffPresentationStateComponent<
           availableWidth={availableWidth}
           onContextMenu={this.onContextMenu}
           onRowDoubleClick={this.onRowDoubleClick}
+          treeView={this.state.treeView}
+          getFolderContextMenuItems={this.getFolderContextMenuItems}
         />
       </>
     )
@@ -337,8 +344,38 @@ export class SelectedCommits extends DiffPresentationStateComponent<
     return (
       <div className="file-list-header">
         {fileCount} changed {filesPlural}
+        <FileTreeViewToggle
+          treeView={this.state.treeView}
+          onChange={this.onTreeViewChanged}
+        />
       </div>
     )
+  }
+
+  private getFolderContextMenuItems = (
+    path: string
+  ): ReadonlyArray<IMenuItem> => {
+    const { repository, dispatcher } = this.props
+    return [
+      {
+        label: CopyFolderPathLabel,
+        action: () =>
+          dispatcher.copyPathToClipboard(Path.join(repository.path, path)),
+      },
+      {
+        label: CopyRelativeFolderPathLabel,
+        action: () => dispatcher.copyPathToClipboard(Path.normalize(path)),
+      },
+      { type: 'separator' },
+      {
+        label: RevealInFileManagerLabel,
+        action: () => revealInFileManager(repository, path),
+      },
+    ]
+  }
+
+  private onTreeViewChanged = (treeView: boolean) => {
+    this.setState({ treeView })
   }
 
   /**

@@ -31,6 +31,8 @@ import {
   CopyRelativeFilePathLabel,
   CopySelectedPathsLabel,
   CopySelectedRelativePathsLabel,
+  CopyFolderPathLabel,
+  CopyRelativeFolderPathLabel,
 } from '../lib/context-menu'
 import { CommitMessage } from './commit-message'
 import { ChangedFile } from './changed-file'
@@ -75,11 +77,23 @@ import { ChangesListFilterOptions } from './changes-list-filter-options'
 import { generateStashListContextMenu } from '../stashing/stash-list-item-context-menu'
 import { HookProgress } from '../../lib/git'
 import { formatNumber } from '../../lib/format-number'
+import {
+  buildFileTreeRows,
+  FileTreeRow,
+  getNestedFolderPaths,
+} from '../../lib/file-tree'
+import {
+  FileTreeFolder,
+  FileTreeViewToggle,
+  getFileTreeView,
+} from '../lib/file-tree-folder'
 
 export interface IChangesListItem extends IFilterListItem {
   readonly id: string
   readonly text: ReadonlyArray<string>
   readonly change: WorkingDirectoryFileChange
+  /** Tree depth when the list is shown as a tree */
+  readonly depth?: number
 }
 
 const RowHeight = 29
@@ -268,7 +282,8 @@ interface IFilterChangesListState {
   readonly filteredItems: Map<string, IChangesListItem>
   readonly selectedItems: ReadonlyArray<IChangesListItem>
   readonly focusedRow: string | null
-  readonly groups: ReadonlyArray<IFilterListGroup<IChangesListItem>>
+  readonly treeView: boolean
+  readonly collapsedFolders: ReadonlySet<string>
 }
 
 function getSelectedItemsFromProps(
@@ -367,11 +382,80 @@ export class FilterChangesList extends React.Component<
     }
   )
 
+  /** Folder rows of the current tree, keyed by folder path (group id) */
+  private folderRows = new Map<
+    string,
+    Extract<FileTreeRow<WorkingDirectoryFileChange>, { kind: 'folder' }>
+  >()
+
+  private getGroups = memoizeOne(
+    (
+      files: ReadonlyArray<WorkingDirectoryFileChange>,
+      treeView: boolean,
+      collapsedFolders: ReadonlySet<string>,
+      isFiltering: boolean
+    ): ReadonlyArray<IFilterListGroup<IChangesListItem>> => {
+      this.folderRows = new Map()
+      if (!treeView) {
+        return [this.createListItems(files)]
+      }
+
+      // While filtering, expand everything and only keep folders containing
+      // matches, otherwise the filter could hide matches in collapsed folders.
+      const rows = buildFileTreeRows(
+        files,
+        isFiltering ? new Set<string>() : collapsedFolders
+      )
+      const groups = new Array<{
+        identifier: string
+        showHeader: boolean
+        alwaysShowHeader: boolean
+        items: Array<IChangesListItem>
+      }>()
+      // Each folder is a group whose header is the folder row. Since subfolders
+      // come before files, a folder's own files go in a headerless group after
+      // its last subfolder.
+      let currentDir: string | null = null
+
+      for (const row of rows) {
+        if (row.kind === 'folder') {
+          this.folderRows.set(row.path, row)
+          groups.push({
+            identifier: row.path,
+            showHeader: true,
+            alwaysShowHeader: !isFiltering,
+            items: [],
+          })
+          currentDir = row.path
+        } else {
+          const { file, depth } = row
+          const dir = file.path.substring(0, file.path.lastIndexOf('/'))
+          if (dir !== currentDir) {
+            groups.push({
+              identifier: `\0${dir}`,
+              showHeader: false,
+              alwaysShowHeader: false,
+              items: [],
+            })
+            currentDir = dir
+          }
+          groups[groups.length - 1].items.push({
+            text: [file.path],
+            id: file.id,
+            change: file,
+            depth,
+          })
+        }
+      }
+
+      return groups
+    }
+  )
+
   public constructor(props: IFilterChangesListProps) {
     super(props)
 
     const listItems = this.createListItems(props.workingDirectory.files)
-    const groups = [listItems]
 
     this.state = {
       filteredItems: new Map<string, IChangesListItem>(
@@ -379,7 +463,8 @@ export class FilterChangesList extends React.Component<
       ),
       selectedItems: getSelectedItemsFromProps(props),
       focusedRow: null,
-      groups,
+      treeView: getFileTreeView(),
+      collapsedFolders: new Set(),
     }
   }
 
@@ -395,7 +480,6 @@ export class FilterChangesList extends React.Component<
     ) {
       this.setState({
         selectedItems: getSelectedItemsFromProps(nextProps),
-        groups: [this.createListItems(nextProps.workingDirectory.files)],
       })
     }
   }
@@ -411,6 +495,7 @@ export class FilterChangesList extends React.Component<
 
     return {
       identifier: 'changed-files',
+      showHeader: false,
       items,
     }
   }
@@ -483,8 +568,156 @@ export class FilterChangesList extends React.Component<
         checkboxTooltip={checkboxTooltip}
         focused={this.state.focusedRow === changeListItem.id}
         matches={matches}
+        depth={this.state.treeView ? changeListItem.depth : undefined}
       />
     )
+  }
+
+  private renderFolder = (path: string): JSX.Element | null => {
+    const folder = this.folderRows.get(path)
+    if (folder === undefined) {
+      return null
+    }
+
+    const { isCommitting, rebaseConflictState } = this.props
+    const include = getCheckBoxValueFromIncludeAll(
+      WorkingDirectoryStatus.fromFiles(folder.files).includeAll
+    )
+
+    return (
+      <FileTreeFolder
+        path={folder.path}
+        name={folder.name}
+        depth={folder.depth}
+        collapsed={folder.collapsed}
+        fileCount={folder.files.length}
+        onToggleCollapsed={this.onToggleFolderCollapsed}
+        onContextMenu={this.onFolderContextMenu}
+        include={include}
+        disableInclude={isCommitting || rebaseConflictState !== null}
+        onIncludeChanged={this.onFolderIncludeChanged}
+      />
+    )
+  }
+
+  private onToggleFolderCollapsed = (path: string) => {
+    const collapsedFolders = new Set(this.state.collapsedFolders)
+    if (!collapsedFolders.delete(path)) {
+      collapsedFolders.add(path)
+    }
+    this.setState({ collapsedFolders })
+  }
+
+  private setFoldersCollapsedRecursively(path: string, collapsed: boolean) {
+    const collapsedFolders = new Set(this.state.collapsedFolders)
+    for (const p of getNestedFolderPaths(
+      this.props.workingDirectory.files,
+      path
+    )) {
+      if (collapsed) {
+        collapsedFolders.add(p)
+      } else {
+        collapsedFolders.delete(p)
+      }
+    }
+    this.setState({ collapsedFolders })
+  }
+
+  private onFolderContextMenu = (
+    path: string,
+    event: React.MouseEvent<HTMLDivElement>
+  ) => {
+    const folder = this.folderRows.get(path)
+    if (folder === undefined || this.props.isCommitting) {
+      return
+    }
+
+    event.preventDefault()
+
+    const { files } = folder
+    const { repository, dispatcher, workingDirectory } = this.props
+    const canChange = this.props.rebaseConflictState === null
+
+    showContextualMenu([
+      {
+        label: __DARWIN__ ? 'Expand Recursively' : 'Expand recursively',
+        action: () => this.setFoldersCollapsedRecursively(path, false),
+      },
+      {
+        label: __DARWIN__ ? 'Collapse Recursively' : 'Collapse recursively',
+        action: () => this.setFoldersCollapsedRecursively(path, true),
+      },
+      { type: 'separator' },
+      {
+        label: __DARWIN__
+          ? 'Include Files in Folder'
+          : 'Include files in folder',
+        action: () => this.props.onIncludeChanged(files, true),
+        enabled: canChange,
+      },
+      {
+        label: __DARWIN__
+          ? 'Exclude Files in Folder'
+          : 'Exclude files in folder',
+        action: () => this.props.onIncludeChanged(files, false),
+        enabled: canChange,
+      },
+      { type: 'separator' },
+      {
+        label: __DARWIN__
+          ? 'Discard All Changes in Folder…'
+          : 'Discard all changes in folder…',
+        action: () =>
+          this.props.onDiscardChangesFromFiles(
+            files,
+            files.length === workingDirectory.files.length,
+            false
+          ),
+        enabled: canChange,
+      },
+      {
+        label: __DARWIN__
+          ? 'Ignore Folder (Add to .gitignore)'
+          : 'Ignore folder (add to .gitignore)',
+        action: () => this.props.onIgnoreFile(`${path}/`),
+        enabled: canChange,
+      },
+      { type: 'separator' },
+      {
+        label: CopyFolderPathLabel,
+        action: () =>
+          dispatcher.copyPathToClipboard(Path.join(repository.path, path)),
+      },
+      {
+        label: CopyRelativeFolderPathLabel,
+        action: () => dispatcher.copyPathToClipboard(Path.normalize(path)),
+      },
+      { type: 'separator' },
+      {
+        label: RevealInFileManagerLabel,
+        action: () => revealInFileManager(repository, path),
+      },
+    ])
+  }
+
+  private onFolderIncludeChanged = (path: string, include: boolean) => {
+    const folder = this.folderRows.get(path)
+    if (folder !== undefined) {
+      this.props.onIncludeChanged(folder.files, include)
+    }
+  }
+
+  private renderTreeViewToggle() {
+    return (
+      <FileTreeViewToggle
+        treeView={this.state.treeView}
+        onChange={this.onTreeViewChanged}
+      />
+    )
+  }
+
+  private onTreeViewChanged = (treeView: boolean) => {
+    this.setState({ treeView })
   }
 
   private onStashAllChanges = () => {
@@ -1327,6 +1560,18 @@ export class FilterChangesList extends React.Component<
   ) => {
     const filteredSet = new Map<string, IChangesListItem>()
     filteredItems.forEach(f => filteredSet.set(f.id, f))
+    // Files in collapsed tree folders are hidden, not filtered out
+    for (const folder of this.folderRows.values()) {
+      if (folder.collapsed) {
+        for (const change of folder.files) {
+          filteredSet.set(change.id, {
+            text: [change.path],
+            id: change.id,
+            change,
+          })
+        }
+      }
+    }
     this.setState({ filteredItems: filteredSet })
   }
 
@@ -1421,6 +1666,7 @@ export class FilterChangesList extends React.Component<
           className="changes-list-check-all"
           label={checkAllLabel}
         />
+        {!this.props.showChangesFilter && this.renderTreeViewToggle()}
       </div>
     )
   }
@@ -1454,6 +1700,7 @@ export class FilterChangesList extends React.Component<
           onKeyDown={this.onFilterKeyDown}
           value={this.props.fileListFilter.filterText}
         />
+        {this.renderTreeViewToggle()}
       </div>
     )
   }
@@ -1476,7 +1723,12 @@ export class FilterChangesList extends React.Component<
 
     return (
       <>
-        <div className="changes-list-container file-list filtered-changes-list">
+        <div
+          className={classNames(
+            'changes-list-container file-list filtered-changes-list',
+            { 'tree-view': this.state.treeView }
+          )}
+        >
           <AugmentedSectionFilterList<IChangesListItem>
             ref={this.filterListRef}
             id="changes-list"
@@ -1491,6 +1743,7 @@ export class FilterChangesList extends React.Component<
             selectedItems={this.state.selectedItems}
             selectionMode="multi"
             renderItem={this.renderChangedFile}
+            renderGroupHeader={this.renderFolder}
             onItemClick={this.onChangedFileClick}
             onItemDoubleClick={this.onChangedFileDoubleClick}
             onItemKeyboardFocus={this.onChangedFileFocus}
@@ -1499,7 +1752,13 @@ export class FilterChangesList extends React.Component<
             setScrollTop={this.props.changesListScrollTop}
             onItemKeyDown={this.onItemKeyDown}
             onSelectionChanged={this.onFileSelectionChanged}
-            groups={this.state.groups}
+            groups={this.getGroups(
+              workingDirectory.files,
+              this.state.treeView,
+              this.state.collapsedFolders,
+              this.props.showChangesFilter &&
+                hasActiveFilters(this.props.fileListFilter)
+            )}
             filterMethod={
               this.props.fileListFilter.isIncludedInCommit ||
               this.props.fileListFilter.isNewFile ||
@@ -1513,6 +1772,8 @@ export class FilterChangesList extends React.Component<
               workingDirectory: workingDirectory,
               isCommitting: isCommitting,
               focusedRow: this.state.focusedRow,
+              treeView: this.state.treeView,
+              collapsedFolders: this.state.collapsedFolders,
               showChangesFilter: this.props.showChangesFilter,
               filterNewFiles: this.props.fileListFilter.isNewFile,
               filterModifiedFiles: this.props.fileListFilter.isModifiedFile,
