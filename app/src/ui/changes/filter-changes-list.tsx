@@ -87,6 +87,7 @@ import {
 } from '../lib/file-tree-folder'
 import { match } from '../../lib/fuzzy-find'
 import { getText } from '../lib/augmented-filter-list'
+import { SelectionSource } from '../lib/filter-list'
 
 export interface IChangesListItem extends IFilterListItem {
   readonly id: string
@@ -1640,6 +1641,26 @@ export class FilterChangesList extends React.Component<
     this.setState({ filteredItems: filteredSet })
   }
 
+  private onListSelectionChanged = (
+    items: ReadonlyArray<IChangesListItem>,
+    source: SelectionSource
+  ) => {
+    // Collapsing a folder removes its selected files from the list, which the
+    // list reports as them being deselected. Keep them selected instead.
+    if (source.kind === 'filter') {
+      const hiddenIds = this.getIdsInCollapsedFolders()
+      const shownIds = new Set(items.map(i => i.id))
+      const { selectedItems } = this.state
+      if (
+        selectedItems.some(i => hiddenIds.has(i.id)) &&
+        selectedItems.every(i => shownIds.has(i.id) || hiddenIds.has(i.id))
+      ) {
+        return
+      }
+    }
+    this.onFileSelectionChanged(items)
+  }
+
   private onFileSelectionChanged = (items: ReadonlyArray<IChangesListItem>) => {
     const rows = items.map(i =>
       this.props.workingDirectory.findFileIndexByID(i.change.id)
@@ -1816,7 +1837,7 @@ export class FilterChangesList extends React.Component<
             onScroll={this.onScroll}
             setScrollTop={this.props.changesListScrollTop}
             onItemKeyDown={this.onItemKeyDown}
-            onSelectionChanged={this.onFileSelectionChanged}
+            onSelectionChanged={this.onListSelectionChanged}
             groups={this.getGroups()}
             filterMethod={
               this.props.fileListFilter.isIncludedInCommit ||
