@@ -88,6 +88,7 @@ import {
 import { match } from '../../lib/fuzzy-find'
 import { getText } from '../lib/augmented-filter-list'
 import { SelectionSource } from '../lib/filter-list'
+import { FancyTextBox } from '../lib/fancy-text-box'
 
 export interface IChangesListItem extends IFilterListItem {
   readonly id: string
@@ -1777,8 +1778,9 @@ export class FilterChangesList extends React.Component<
             workingDirectory={this.props.workingDirectory}
           />
         </span>
-        <TextBox
-          ref={this.onTextBoxRef}
+        <FancyTextBox
+          onRef={this.onTextBoxRef}
+          symbol={octicons.search}
           displayClearButton={true}
           placeholder={'Filter'}
           className="filter-list-filter-field"
