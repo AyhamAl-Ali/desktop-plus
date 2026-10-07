@@ -85,6 +85,8 @@ import {
   FileTreeViewToggle,
   getFolderPathMenuItems,
 } from '../lib/file-tree-folder'
+import { match } from '../../lib/fuzzy-find'
+import { getText } from '../lib/augmented-filter-list'
 
 export interface IChangesListItem extends IFilterListItem {
   readonly id: string
@@ -283,8 +285,11 @@ interface IFilterChangesListState {
   readonly filteredItems: Map<string, IChangesListItem>
   readonly selectedItems: ReadonlyArray<IChangesListItem>
   readonly focusedRow: string | null
+  readonly groups: ReadonlyArray<IFilterListGroup<IChangesListItem>>
   readonly collapsedFolders: ReadonlySet<string>
 }
+
+const noCollapsedFolders: ReadonlySet<string> = new Set()
 
 function getSelectedItemsFromProps(
   props: IFilterChangesListProps
@@ -388,24 +393,30 @@ export class FilterChangesList extends React.Component<
     Extract<FileTreeRow<WorkingDirectoryFileChange>, { kind: 'folder' }>
   >()
 
-  private getGroups = memoizeOne(
+  /** The files passing the active filters, when the tree view is filtered */
+  private getFilteredFiles = memoizeOne(
     (
       files: ReadonlyArray<WorkingDirectoryFileChange>,
-      treeView: boolean,
-      collapsedFolders: ReadonlySet<string>,
-      isFiltering: boolean
+      fileListFilter: IFileListFilterState
+    ): ReadonlyArray<WorkingDirectoryFileChange> => {
+      const items = this.createListItems(files).items.filter(this.applyFilters)
+      const filterText = fileListFilter.filterText.toLowerCase()
+      const matches =
+        filterText.length > 0
+          ? match(filterText, items, getText).map(m => m.item)
+          : items
+      return matches.map(i => i.change)
+    }
+  )
+
+  private getTreeGroups = memoizeOne(
+    (
+      files: ReadonlyArray<WorkingDirectoryFileChange>,
+      collapsedFolders: ReadonlySet<string>
     ): ReadonlyArray<IFilterListGroup<IChangesListItem>> => {
       this.folderRows = new Map()
-      if (!treeView) {
-        return [this.createListItems(files)]
-      }
 
-      // While filtering, expand everything and only keep folders containing
-      // matches, otherwise the filter could hide matches in collapsed folders.
-      const rows = buildFileTreeRows(
-        files,
-        isFiltering ? new Set<string>() : collapsedFolders
-      )
+      const rows = buildFileTreeRows(files, collapsedFolders)
       const groups = new Array<{
         identifier: string
         showHeader: boolean
@@ -414,7 +425,8 @@ export class FilterChangesList extends React.Component<
       }>()
       // Each folder is a group whose header is the folder row. Since subfolders
       // come before files, a folder's own files go in a headerless group after
-      // its last subfolder.
+      // its last subfolder. Folders with only subfolders are empty groups, so
+      // their headers must always be shown.
       let currentDir: string | null = null
 
       for (const row of rows) {
@@ -423,7 +435,7 @@ export class FilterChangesList extends React.Component<
           groups.push({
             identifier: row.path,
             showHeader: true,
-            alwaysShowHeader: !isFiltering,
+            alwaysShowHeader: true,
             items: [],
           })
           currentDir = row.path
@@ -456,6 +468,7 @@ export class FilterChangesList extends React.Component<
     super(props)
 
     const listItems = this.createListItems(props.workingDirectory.files)
+    const groups = [listItems]
 
     this.state = {
       filteredItems: new Map<string, IChangesListItem>(
@@ -463,6 +476,7 @@ export class FilterChangesList extends React.Component<
       ),
       selectedItems: getSelectedItemsFromProps(props),
       focusedRow: null,
+      groups,
       collapsedFolders: new Set(),
     }
   }
@@ -479,8 +493,51 @@ export class FilterChangesList extends React.Component<
     ) {
       this.setState({
         selectedItems: getSelectedItemsFromProps(nextProps),
+        groups: [this.createListItems(nextProps.workingDirectory.files)],
       })
     }
+  }
+
+  private get isFiltering() {
+    return (
+      this.props.showChangesFilter &&
+      hasActiveFilters(this.props.fileListFilter)
+    )
+  }
+
+  /** While filtering everything is expanded, so no match is ever hidden */
+  private get activeCollapsedFolders() {
+    return this.isFiltering ? noCollapsedFolders : this.state.collapsedFolders
+  }
+
+  /**
+   * While filtering, the tree is built from the matching files only so that
+   * every folder shown contains matches and folder actions only apply to them.
+   */
+  private getGroups(): ReadonlyArray<IFilterListGroup<IChangesListItem>> {
+    if (!this.props.fileTreeView) {
+      return this.state.groups
+    }
+    const { files } = this.props.workingDirectory
+    return this.getTreeGroups(
+      this.isFiltering
+        ? this.getFilteredFiles(files, this.props.fileListFilter)
+        : files,
+      this.activeCollapsedFolders
+    )
+  }
+
+  /** IDs of the files hidden inside collapsed folders of the tree */
+  private getIdsInCollapsedFolders(): ReadonlySet<string> {
+    const ids = new Set<string>()
+    if (this.props.fileTreeView) {
+      for (const folder of this.folderRows.values()) {
+        if (folder.collapsed) {
+          folder.files.forEach(f => ids.add(f.id))
+        }
+      }
+    }
+    return ids
   }
 
   private createListItems(
@@ -1547,15 +1604,14 @@ export class FilterChangesList extends React.Component<
     const filteredSet = new Map<string, IChangesListItem>()
     filteredItems.forEach(f => filteredSet.set(f.id, f))
     // Files in collapsed tree folders are hidden, not filtered out
-    for (const folder of this.folderRows.values()) {
-      if (folder.collapsed) {
-        for (const change of folder.files) {
-          filteredSet.set(change.id, {
-            text: [change.path],
-            id: change.id,
-            change,
-          })
-        }
+    const hiddenIds = this.getIdsInCollapsedFolders()
+    for (const change of this.props.workingDirectory.files) {
+      if (hiddenIds.has(change.id)) {
+        filteredSet.set(change.id, {
+          text: [change.path],
+          id: change.id,
+          change,
+        })
       }
     }
     this.setState({ filteredItems: filteredSet })
@@ -1738,13 +1794,7 @@ export class FilterChangesList extends React.Component<
             setScrollTop={this.props.changesListScrollTop}
             onItemKeyDown={this.onItemKeyDown}
             onSelectionChanged={this.onFileSelectionChanged}
-            groups={this.getGroups(
-              workingDirectory.files,
-              this.props.fileTreeView,
-              this.state.collapsedFolders,
-              this.props.showChangesFilter &&
-                hasActiveFilters(this.props.fileListFilter)
-            )}
+            groups={this.getGroups()}
             filterMethod={
               this.props.fileListFilter.isIncludedInCommit ||
               this.props.fileListFilter.isNewFile ||
@@ -1759,7 +1809,7 @@ export class FilterChangesList extends React.Component<
               isCommitting: isCommitting,
               focusedRow: this.state.focusedRow,
               treeView: this.props.fileTreeView,
-              collapsedFolders: this.state.collapsedFolders,
+              collapsedFolders: this.activeCollapsedFolders,
               showChangesFilter: this.props.showChangesFilter,
               filterNewFiles: this.props.fileListFilter.isNewFile,
               filterModifiedFiles: this.props.fileListFilter.isModifiedFile,
