@@ -147,7 +147,7 @@ interface IFileTreeViewToggleProps {
   readonly onChange: (treeView: boolean) => void
 }
 
-/** Pair of header buttons switching a file list between path and tree view */
+/** Header buttons switching a file list between a plain list and a folder tree */
 export class FileTreeViewToggle extends React.Component<IFileTreeViewToggleProps> {
   private onPathView = () => this.props.onChange(false)
   private onTreeView = () => this.props.onChange(true)
@@ -160,9 +160,9 @@ export class FileTreeViewToggle extends React.Component<IFileTreeViewToggleProps
           size="small"
           className={treeView ? undefined : 'active'}
           onClick={this.onPathView}
-          ariaLabel="Path view"
+          ariaLabel="Plain list"
           ariaPressed={!treeView}
-          tooltip="Path view"
+          tooltip="Plain list"
         >
           <Octicon symbol={octicons.listUnordered} />
         </Button>
@@ -170,9 +170,9 @@ export class FileTreeViewToggle extends React.Component<IFileTreeViewToggleProps
           size="small"
           className={treeView ? 'active' : undefined}
           onClick={this.onTreeView}
-          ariaLabel="Tree view"
+          ariaLabel="Folder tree"
           ariaPressed={treeView}
-          tooltip="Tree view"
+          tooltip="Folder tree"
         >
           <Octicon symbol={octicons.fileDirectory} />
         </Button>
