@@ -612,6 +612,7 @@ export class RepositoryView extends React.Component<
           showSideBySideDiff={this.props.showSideBySideDiff}
           showDiffMinimap={this.props.showDiffMinimap}
           wrapDiffLines={this.props.wrapDiffLines}
+          fileTreeView={this.props.fileTreeView}
           onOpenBinaryFile={this.onOpenBinaryFile}
           onOpenSubmodule={this.onOpenSubmodule}
           onChangeImageDiffType={this.onChangeImageDiffType}

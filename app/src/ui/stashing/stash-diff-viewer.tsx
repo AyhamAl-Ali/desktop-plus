@@ -10,6 +10,10 @@ import { StashDiffHeader } from './stash-diff-header'
 import { SeamlessDiffSwitcher } from '../diff/seamless-diff-switcher'
 import { IConstrainedValue } from '../../lib/app-state'
 import { clamp } from '../../lib/clamp'
+import {
+  FileTreeViewToggle,
+  getFolderPathMenuItems,
+} from '../lib/file-tree-folder'
 
 interface IStashDiffViewerProps {
   /** The stash in question. */
@@ -38,6 +42,9 @@ interface IStashDiffViewerProps {
 
   /** Whether text diff lines should wrap within the viewport. */
   readonly wrapDiffLines: boolean
+
+  /** Whether the list of changed files is shown as a tree */
+  readonly fileTreeView: boolean
 
   /**
    * Called when the user requests to open a binary file in an the
@@ -94,6 +101,25 @@ export class StashDiffViewer extends React.PureComponent<IStashDiffViewerProps> 
     const file = files[row]
 
     this.props.onOpenInExternalEditor(file.path)
+  }
+
+  private getFolderContextMenuItems = (path: string) =>
+    getFolderPathMenuItems(this.props.repository, this.props.dispatcher, path)
+
+  private onTreeViewChanged = (treeView: boolean) => {
+    this.props.dispatcher.setFileTreeView(treeView)
+  }
+
+  private renderFileListHeader(fileCount: number) {
+    return (
+      <div className="file-list-header">
+        {fileCount} changed {fileCount === 1 ? 'file' : 'files'}
+        <FileTreeViewToggle
+          treeView={this.props.fileTreeView}
+          onChange={this.onTreeViewChanged}
+        />
+      </div>
+    )
   }
 
   private onResize = (width: number) =>
@@ -164,12 +190,15 @@ export class StashDiffViewer extends React.PureComponent<IStashDiffViewerProps> 
             onReset={this.onReset}
             description="Stash file list"
           >
+            {this.renderFileListHeader(files.length)}
             <FileList
               files={files}
               onSelectionChanged={this.onFileSelectionChanged}
               selectedFiles={selectedStashedFile ? [selectedStashedFile] : []}
               availableWidth={availableWidth}
               onRowDoubleClick={this.onRowDoubleClick}
+              treeView={this.props.fileTreeView}
+              getFolderContextMenuItems={this.getFolderContextMenuItems}
             />
           </Resizable>
           {diffComponent}
