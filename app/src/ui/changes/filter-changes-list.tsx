@@ -31,8 +31,6 @@ import {
   CopyRelativeFilePathLabel,
   CopySelectedPathsLabel,
   CopySelectedRelativePathsLabel,
-  CopyFolderPathLabel,
-  CopyRelativeFolderPathLabel,
 } from '../lib/context-menu'
 import { CommitMessage } from './commit-message'
 import { ChangedFile } from './changed-file'
@@ -85,6 +83,7 @@ import {
 import {
   FileTreeFolder,
   FileTreeViewToggle,
+  getFolderPathMenuItems,
 } from '../lib/file-tree-folder'
 
 export interface IChangesListItem extends IFilterListItem {
@@ -683,20 +682,7 @@ export class FilterChangesList extends React.Component<
         enabled: canChange,
       },
       { type: 'separator' },
-      {
-        label: CopyFolderPathLabel,
-        action: () =>
-          dispatcher.copyPathToClipboard(Path.join(repository.path, path)),
-      },
-      {
-        label: CopyRelativeFolderPathLabel,
-        action: () => dispatcher.copyPathToClipboard(Path.normalize(path)),
-      },
-      { type: 'separator' },
-      {
-        label: RevealInFileManagerLabel,
-        action: () => revealInFileManager(repository, path),
-      },
+      ...getFolderPathMenuItems(repository, dispatcher, path),
     ])
   }
 

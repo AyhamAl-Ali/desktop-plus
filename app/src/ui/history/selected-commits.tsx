@@ -19,8 +19,6 @@ import {
   CopyRelativeFilePathLabel,
   CopySelectedPathsLabel,
   CopySelectedRelativePathsLabel,
-  CopyFolderPathLabel,
-  CopyRelativeFolderPathLabel,
 } from '../lib/context-menu'
 import { ThrottledScheduler } from '../lib/throttled-scheduler'
 
@@ -29,7 +27,10 @@ import { Resizable } from '../resizable'
 import { showContextualMenu } from '../../lib/menu-item'
 
 import { FileList } from './file-list'
-import { FileTreeViewToggle } from '../lib/file-tree-folder'
+import {
+  FileTreeViewToggle,
+  getFolderPathMenuItems,
+} from '../lib/file-tree-folder'
 import { SeamlessDiffSwitcher } from '../diff/seamless-diff-switcher'
 import { getDotComAPIEndpoint } from '../../lib/api'
 import { IMenuItem } from '../../lib/menu-item'
@@ -353,27 +354,8 @@ export class SelectedCommits extends DiffPresentationStateComponent<
     )
   }
 
-  private getFolderContextMenuItems = (
-    path: string
-  ): ReadonlyArray<IMenuItem> => {
-    const { repository, dispatcher } = this.props
-    return [
-      {
-        label: CopyFolderPathLabel,
-        action: () =>
-          dispatcher.copyPathToClipboard(Path.join(repository.path, path)),
-      },
-      {
-        label: CopyRelativeFolderPathLabel,
-        action: () => dispatcher.copyPathToClipboard(Path.normalize(path)),
-      },
-      { type: 'separator' },
-      {
-        label: RevealInFileManagerLabel,
-        action: () => revealInFileManager(repository, path),
-      },
-    ]
-  }
+  private getFolderContextMenuItems = (path: string) =>
+    getFolderPathMenuItems(this.props.repository, this.props.dispatcher, path)
 
   private onTreeViewChanged = (treeView: boolean) => {
     this.props.dispatcher.setFileTreeView(treeView)

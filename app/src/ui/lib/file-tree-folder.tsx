@@ -5,6 +5,16 @@ import { Checkbox, CheckboxValue } from './checkbox'
 import { Button } from './button'
 import { getBoolean, setBoolean } from '../../lib/local-storage'
 import { AppFileStatus, AppFileStatusKind } from '../../models/status'
+import * as Path from 'path'
+import { Repository } from '../../models/repository'
+import { Dispatcher } from '../dispatcher'
+import { IMenuItem } from '../../lib/menu-item'
+import { revealInFileManager } from '../../lib/app-shell'
+import {
+  CopyFolderPathLabel,
+  CopyRelativeFolderPathLabel,
+  RevealInFileManagerLabel,
+} from './context-menu'
 
 const fileTreeViewKey = 'file-list-tree-view'
 
@@ -63,6 +73,30 @@ export const FileTreeGuides: React.FunctionComponent<{
     ))}
   </>
 )
+
+/** Context menu items acting on the path of a folder in a file tree */
+export function getFolderPathMenuItems(
+  repository: Repository,
+  dispatcher: Dispatcher,
+  path: string
+): ReadonlyArray<IMenuItem> {
+  return [
+    {
+      label: CopyFolderPathLabel,
+      action: () =>
+        dispatcher.copyPathToClipboard(Path.join(repository.path, path)),
+    },
+    {
+      label: CopyRelativeFolderPathLabel,
+      action: () => dispatcher.copyPathToClipboard(Path.normalize(path)),
+    },
+    { type: 'separator' },
+    {
+      label: RevealInFileManagerLabel,
+      action: () => revealInFileManager(repository, path),
+    },
+  ]
+}
 
 interface IFileTreeFolderProps {
   readonly path: string
