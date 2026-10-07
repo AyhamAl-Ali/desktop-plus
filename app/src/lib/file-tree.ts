@@ -1,3 +1,6 @@
+import { AppFileStatus, AppFileStatusKind } from '../models/status'
+import { IMatches } from './fuzzy-find'
+
 /** A folder or file row in a file tree view. */
 export type FileTreeRow<T> =
   | {
@@ -102,4 +105,33 @@ export function getNestedFolderPaths(
     }
   }
   return paths
+}
+
+const fileName = (path: string) => path.substring(path.lastIndexOf('/') + 1)
+const dirName = (path: string) => path.substring(0, path.lastIndexOf('/'))
+
+/**
+ * The label of a file row in a tree, which only shows the file name. For
+ * renames the old name is shortened too when the folder is the same, and
+ * highlighted characters are shifted to the file name.
+ */
+export function getTreeFileLabel<
+  T extends { path: string; status: AppFileStatus; matches?: IMatches }
+>(label: T): T {
+  const { path, status, matches } = label
+  const offset = path.length - fileName(path).length
+  return {
+    ...label,
+    path: fileName(path),
+    status:
+      (status.kind === AppFileStatusKind.Renamed ||
+        status.kind === AppFileStatusKind.Copied) &&
+      dirName(status.oldPath) === dirName(path)
+        ? { ...status, oldPath: fileName(status.oldPath) }
+        : status,
+    matches: matches && {
+      title: matches.title.filter(i => i >= offset).map(i => i - offset),
+      subtitle: matches.subtitle,
+    },
+  }
 }

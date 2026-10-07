@@ -4,7 +4,6 @@ import * as octicons from '../octicons/octicons.generated'
 import { Checkbox, CheckboxValue } from './checkbox'
 import { Button } from './button'
 import { getBoolean, setBoolean } from '../../lib/local-storage'
-import { AppFileStatus, AppFileStatusKind } from '../../models/status'
 import * as Path from 'path'
 import { Repository } from '../../models/repository'
 import { Dispatcher } from '../dispatcher'
@@ -27,52 +26,23 @@ export const setFileTreeView = (treeView: boolean) =>
 /** Horizontal indentation per tree level, in pixels */
 const FileTreeIndent = 16
 
-/** Inline style indenting a tree row to the given depth */
-export const fileTreeRowStyle = (depth: number): React.CSSProperties => ({
-  paddingLeft: `calc(var(--spacing) + ${depth * FileTreeIndent}px)`,
-})
-
 /** Width taken by the indentation of a tree row at the given depth */
 export const fileTreeIndentWidth = (depth: number) => depth * FileTreeIndent
 
-const fileName = (path: string) => path.substring(path.lastIndexOf('/') + 1)
-const dirName = (path: string) => path.substring(0, path.lastIndexOf('/'))
-
 /**
- * The path and status to show for a file row in a tree. Only the file name is
- * shown, and for renames the old name is shortened when the folder is the same.
+ * Indentation of a tree row, with a thin vertical line for each ancestor
+ * folder. The lines of consecutive rows join into continuous guides.
  */
-export function getTreeFileLabel(
-  path: string,
-  status: AppFileStatus
-): { path: string; status: AppFileStatus } {
-  if (
-    (status.kind === AppFileStatusKind.Renamed ||
-      status.kind === AppFileStatusKind.Copied) &&
-    dirName(status.oldPath) === dirName(path)
-  ) {
-    return {
-      path: fileName(path),
-      status: { ...status, oldPath: fileName(status.oldPath) },
-    }
-  }
-  return { path: fileName(path), status }
-}
-
-/** Thin vertical lines connecting a tree row to its ancestor folders */
 export const FileTreeGuides: React.FunctionComponent<{
   readonly depth: number
-}> = ({ depth }) => (
-  <>
-    {Array.from({ length: depth }, (_, i) => (
-      <span
-        key={i}
-        className="file-tree-guide"
-        style={{ left: `calc(var(--spacing) + ${i * FileTreeIndent + 7}px)` }}
-      />
-    ))}
-  </>
-)
+}> = ({ depth }) =>
+  depth > 0 ? (
+    <span className="file-tree-indent" aria-hidden={true}>
+      {Array.from({ length: depth }, (_, i) => (
+        <span key={i} className="file-tree-guide" />
+      ))}
+    </span>
+  ) : null
 
 /** Context menu items acting on the path of a folder in a file tree */
 export function getFolderPathMenuItems(
@@ -137,11 +107,7 @@ export class FileTreeFolder extends React.Component<IFileTreeFolderProps> {
     const prefixEnd = name.lastIndexOf('/') + 1
 
     return (
-      <div
-        className="file file-tree-folder"
-        style={fileTreeRowStyle(depth)}
-        onContextMenu={this.onContextMenu}
-      >
+      <div className="file file-tree-folder" onContextMenu={this.onContextMenu}>
         <FileTreeGuides depth={depth} />
         {include !== undefined && (
           <Checkbox

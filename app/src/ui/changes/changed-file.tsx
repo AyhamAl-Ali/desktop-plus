@@ -9,12 +9,7 @@ import { TooltipDirection } from '../lib/tooltip'
 import { TooltippedContent } from '../lib/tooltipped-content'
 import { AriaLiveContainer } from '../accessibility/aria-live-container'
 import { IMatches } from '../../lib/fuzzy-find'
-import {
-  FileTreeGuides,
-  fileTreeIndentWidth,
-  fileTreeRowStyle,
-  getTreeFileLabel,
-} from '../lib/file-tree-folder'
+import { FileTreeGuides, fileTreeIndentWidth } from '../lib/file-tree-folder'
 
 interface IChangedFileProps {
   readonly file: WorkingDirectoryFileChange
@@ -60,7 +55,6 @@ export class ChangedFile extends React.Component<IChangedFileProps, {}> {
       matches,
       depth,
     } = this.props
-    const indent = depth === undefined ? 0 : fileTreeIndentWidth(depth)
     const { status, path } = file
     const fileStatus = mapStatus(status)
 
@@ -75,7 +69,7 @@ export class ChangedFile extends React.Component<IChangedFileProps, {}> {
       checkboxWidth -
       filePadding -
       statusWidth -
-      indent
+      fileTreeIndentWidth(depth ?? 0)
 
     const includedText =
       this.props.include === true
@@ -89,10 +83,7 @@ export class ChangedFile extends React.Component<IChangedFileProps, {}> {
     )} ${includedText}`
 
     return (
-      <div
-        className="file"
-        style={depth === undefined ? undefined : fileTreeRowStyle(depth)}
-      >
+      <div className="file">
         {depth !== undefined && <FileTreeGuides depth={depth} />}
         <TooltippedContent
           tooltip={checkboxTooltip}
@@ -111,12 +102,12 @@ export class ChangedFile extends React.Component<IChangedFileProps, {}> {
         </TooltippedContent>
 
         <PathLabel
-          {...(depth === undefined
-            ? { path, status }
-            : getTreeFileLabel(path, status))}
+          path={path}
+          status={status}
           availableWidth={availablePathWidth}
           ariaHidden={true}
-          matches={depth === undefined ? matches : undefined}
+          matches={matches}
+          fileNameOnly={depth !== undefined}
         />
 
         <AriaLiveContainer message={pathScreenReaderMessage} />
