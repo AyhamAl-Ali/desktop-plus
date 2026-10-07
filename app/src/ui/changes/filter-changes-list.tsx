@@ -759,7 +759,7 @@ export class FilterChangesList extends React.Component<
         label: __DARWIN__
           ? 'Ignore Folder (Add to .gitignore)'
           : 'Ignore folder (add to .gitignore)',
-        action: () => this.props.onIgnoreFile(`${path}/`),
+        action: () => this.props.onIgnoreFile(`/${path}`),
         enabled: canChange,
       },
       { type: 'separator' },
