@@ -85,7 +85,6 @@ import {
 import {
   FileTreeFolder,
   FileTreeViewToggle,
-  getFileTreeView,
 } from '../lib/file-tree-folder'
 
 export interface IChangesListItem extends IFilterListItem {
@@ -252,6 +251,9 @@ interface IFilterChangesListProps {
   /** Whether or not to show the changes filter */
   readonly showChangesFilter: boolean
 
+  /** Whether the list of changed files is shown as a tree */
+  readonly fileTreeView: boolean
+
   /**
    * Whether or not to skip blocking commit hooks when creating commits
    * by means of passing the `--no-verify` flag to git commit
@@ -282,7 +284,6 @@ interface IFilterChangesListState {
   readonly filteredItems: Map<string, IChangesListItem>
   readonly selectedItems: ReadonlyArray<IChangesListItem>
   readonly focusedRow: string | null
-  readonly treeView: boolean
   readonly collapsedFolders: ReadonlySet<string>
 }
 
@@ -463,7 +464,6 @@ export class FilterChangesList extends React.Component<
       ),
       selectedItems: getSelectedItemsFromProps(props),
       focusedRow: null,
-      treeView: getFileTreeView(),
       collapsedFolders: new Set(),
     }
   }
@@ -568,7 +568,7 @@ export class FilterChangesList extends React.Component<
         checkboxTooltip={checkboxTooltip}
         focused={this.state.focusedRow === changeListItem.id}
         matches={matches}
-        depth={this.state.treeView ? changeListItem.depth : undefined}
+        depth={this.props.fileTreeView ? changeListItem.depth : undefined}
       />
     )
   }
@@ -710,14 +710,14 @@ export class FilterChangesList extends React.Component<
   private renderTreeViewToggle() {
     return (
       <FileTreeViewToggle
-        treeView={this.state.treeView}
+        treeView={this.props.fileTreeView}
         onChange={this.onTreeViewChanged}
       />
     )
   }
 
   private onTreeViewChanged = (treeView: boolean) => {
-    this.setState({ treeView })
+    this.props.dispatcher.setFileTreeView(treeView)
   }
 
   private onStashAllChanges = () => {
@@ -1726,7 +1726,7 @@ export class FilterChangesList extends React.Component<
         <div
           className={classNames(
             'changes-list-container file-list filtered-changes-list',
-            { 'tree-view': this.state.treeView }
+            { 'tree-view': this.props.fileTreeView }
           )}
         >
           <AugmentedSectionFilterList<IChangesListItem>
@@ -1754,7 +1754,7 @@ export class FilterChangesList extends React.Component<
             onSelectionChanged={this.onFileSelectionChanged}
             groups={this.getGroups(
               workingDirectory.files,
-              this.state.treeView,
+              this.props.fileTreeView,
               this.state.collapsedFolders,
               this.props.showChangesFilter &&
                 hasActiveFilters(this.props.fileListFilter)
@@ -1772,7 +1772,7 @@ export class FilterChangesList extends React.Component<
               workingDirectory: workingDirectory,
               isCommitting: isCommitting,
               focusedRow: this.state.focusedRow,
-              treeView: this.state.treeView,
+              treeView: this.props.fileTreeView,
               collapsedFolders: this.state.collapsedFolders,
               showChangesFilter: this.props.showChangesFilter,
               filterNewFiles: this.props.fileListFilter.isNewFile,

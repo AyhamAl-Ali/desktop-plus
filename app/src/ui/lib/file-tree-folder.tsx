@@ -11,6 +11,9 @@ const fileTreeViewKey = 'file-list-tree-view'
 /** Whether changed files should be shown as a tree (persisted per machine) */
 export const getFileTreeView = () => getBoolean(fileTreeViewKey, false)
 
+export const setFileTreeView = (treeView: boolean) =>
+  setBoolean(fileTreeViewKey, treeView)
+
 /** Horizontal indentation per tree level, in pixels */
 const FileTreeIndent = 16
 
@@ -146,13 +149,8 @@ interface IFileTreeViewToggleProps {
 
 /** Pair of header buttons switching a file list between path and tree view */
 export class FileTreeViewToggle extends React.Component<IFileTreeViewToggleProps> {
-  private setTreeView(treeView: boolean) {
-    setBoolean(fileTreeViewKey, treeView)
-    this.props.onChange(treeView)
-  }
-
-  private onPathView = () => this.setTreeView(false)
-  private onTreeView = () => this.setTreeView(true)
+  private onPathView = () => this.props.onChange(false)
+  private onTreeView = () => this.props.onChange(true)
 
   public render() {
     const { treeView } = this.props

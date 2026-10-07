@@ -29,7 +29,7 @@ import { Resizable } from '../resizable'
 import { showContextualMenu } from '../../lib/menu-item'
 
 import { FileList } from './file-list'
-import { FileTreeViewToggle, getFileTreeView } from '../lib/file-tree-folder'
+import { FileTreeViewToggle } from '../lib/file-tree-folder'
 import { SeamlessDiffSwitcher } from '../diff/seamless-diff-switcher'
 import { getDotComAPIEndpoint } from '../../lib/api'
 import { IMenuItem } from '../../lib/menu-item'
@@ -83,6 +83,9 @@ interface ISelectedCommitsProps {
   /** Whether text diff lines should wrap within the viewport. */
   readonly wrapDiffLines: boolean
 
+  /** Whether the list of changed files is shown as a tree */
+  readonly fileTreeView: boolean
+
   /**
    * Called when the user requests to open a binary file in an the
    * system-assigned application for said file type.
@@ -113,7 +116,6 @@ interface ISelectedCommitsProps {
 interface ISelectedCommitsState extends IDiffPresentationState {
   readonly isExpanded: boolean
   readonly selectedFiles: ReadonlyArray<CommittedFileChange>
-  readonly treeView: boolean
 }
 
 /** The History component. Contains the commit list, commit summary, and diff. */
@@ -129,7 +131,6 @@ export class SelectedCommits extends DiffPresentationStateComponent<
     this.state = {
       isExpanded: false,
       selectedFiles: [],
-      treeView: getFileTreeView(),
       ...this.createDiffPresentationState(),
     }
   }
@@ -331,7 +332,7 @@ export class SelectedCommits extends DiffPresentationStateComponent<
           availableWidth={availableWidth}
           onContextMenu={this.onContextMenu}
           onRowDoubleClick={this.onRowDoubleClick}
-          treeView={this.state.treeView}
+          treeView={this.props.fileTreeView}
           getFolderContextMenuItems={this.getFolderContextMenuItems}
         />
       </>
@@ -345,7 +346,7 @@ export class SelectedCommits extends DiffPresentationStateComponent<
       <div className="file-list-header">
         {fileCount} changed {filesPlural}
         <FileTreeViewToggle
-          treeView={this.state.treeView}
+          treeView={this.props.fileTreeView}
           onChange={this.onTreeViewChanged}
         />
       </div>
@@ -375,7 +376,7 @@ export class SelectedCommits extends DiffPresentationStateComponent<
   }
 
   private onTreeViewChanged = (treeView: boolean) => {
-    this.setState({ treeView })
+    this.props.dispatcher.setFileTreeView(treeView)
   }
 
   /**
