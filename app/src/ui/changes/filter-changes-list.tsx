@@ -287,6 +287,14 @@ interface IFilterChangesListState {
   readonly focusedRow: string | null
   readonly groups: ReadonlyArray<IFilterListGroup<IChangesListItem>>
   readonly collapsedFolders: ReadonlySet<string>
+  /**
+   * Folders collapsed while filtering, which only apply to the filter they
+   * were collapsed with so that changing the filter never hides new matches.
+   */
+  readonly collapsedFoldersWhileFiltering: {
+    readonly filter: IFileListFilterState | null
+    readonly folders: ReadonlySet<string>
+  }
 }
 
 const noCollapsedFolders: ReadonlySet<string> = new Set()
@@ -478,6 +486,7 @@ export class FilterChangesList extends React.Component<
       focusedRow: null,
       groups,
       collapsedFolders: new Set(),
+      collapsedFoldersWhileFiltering: { filter: null, folders: new Set() },
     }
   }
 
@@ -505,9 +514,23 @@ export class FilterChangesList extends React.Component<
     )
   }
 
-  /** While filtering everything is expanded, so no match is ever hidden */
   private get activeCollapsedFolders() {
-    return this.isFiltering ? noCollapsedFolders : this.state.collapsedFolders
+    if (!this.isFiltering) {
+      return this.state.collapsedFolders
+    }
+    const { filter, folders } = this.state.collapsedFoldersWhileFiltering
+    return filter === this.props.fileListFilter ? folders : noCollapsedFolders
+  }
+
+  private updateCollapsedFolders(update: (folders: Set<string>) => void) {
+    const folders = new Set(this.activeCollapsedFolders)
+    update(folders)
+    if (this.isFiltering) {
+      const filter = this.props.fileListFilter
+      this.setState({ collapsedFoldersWhileFiltering: { filter, folders } })
+    } else {
+      this.setState({ collapsedFolders: folders })
+    }
   }
 
   /**
@@ -657,26 +680,26 @@ export class FilterChangesList extends React.Component<
   }
 
   private onToggleFolderCollapsed = (path: string) => {
-    const collapsedFolders = new Set(this.state.collapsedFolders)
-    if (!collapsedFolders.delete(path)) {
-      collapsedFolders.add(path)
-    }
-    this.setState({ collapsedFolders })
+    this.updateCollapsedFolders(folders => {
+      if (!folders.delete(path)) {
+        folders.add(path)
+      }
+    })
   }
 
   private setFoldersCollapsedRecursively(path: string, collapsed: boolean) {
-    const collapsedFolders = new Set(this.state.collapsedFolders)
-    for (const p of getNestedFolderPaths(
-      this.props.workingDirectory.files,
-      path
-    )) {
-      if (collapsed) {
-        collapsedFolders.add(p)
-      } else {
-        collapsedFolders.delete(p)
+    this.updateCollapsedFolders(folders => {
+      for (const p of getNestedFolderPaths(
+        this.props.workingDirectory.files,
+        path
+      )) {
+        if (collapsed) {
+          folders.add(p)
+        } else {
+          folders.delete(p)
+        }
       }
-    }
-    this.setState({ collapsedFolders })
+    })
   }
 
   private onFolderContextMenu = (
