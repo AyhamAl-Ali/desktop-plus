@@ -27,10 +27,7 @@ import { Resizable } from '../resizable'
 import { showContextualMenu } from '../../lib/menu-item'
 
 import { FileList } from './file-list'
-import {
-  FileTreeViewToggle,
-  getFolderPathMenuItems,
-} from '../lib/file-tree-folder'
+import { getFolderPathMenuItems } from '../lib/file-tree-folder'
 import { SeamlessDiffSwitcher } from '../diff/seamless-diff-switcher'
 import { getDotComAPIEndpoint } from '../../lib/api'
 import { IMenuItem } from '../../lib/menu-item'
@@ -346,20 +343,12 @@ export class SelectedCommits extends DiffPresentationStateComponent<
     return (
       <div className="file-list-header">
         {fileCount} changed {filesPlural}
-        <FileTreeViewToggle
-          treeView={this.props.fileTreeView}
-          onChange={this.onTreeViewChanged}
-        />
       </div>
     )
   }
 
   private getFolderContextMenuItems = (path: string) =>
     getFolderPathMenuItems(this.props.repository, this.props.dispatcher, path)
-
-  private onTreeViewChanged = (treeView: boolean) => {
-    this.props.dispatcher.setFileTreeView(treeView)
-  }
 
   /**
    * Open file with default application.

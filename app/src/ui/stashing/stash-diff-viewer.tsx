@@ -10,10 +10,7 @@ import { StashDiffHeader } from './stash-diff-header'
 import { SeamlessDiffSwitcher } from '../diff/seamless-diff-switcher'
 import { IConstrainedValue } from '../../lib/app-state'
 import { clamp } from '../../lib/clamp'
-import {
-  FileTreeViewToggle,
-  getFolderPathMenuItems,
-} from '../lib/file-tree-folder'
+import { getFolderPathMenuItems } from '../lib/file-tree-folder'
 
 interface IStashDiffViewerProps {
   /** The stash in question. */
@@ -106,22 +103,6 @@ export class StashDiffViewer extends React.PureComponent<IStashDiffViewerProps> 
   private getFolderContextMenuItems = (path: string) =>
     getFolderPathMenuItems(this.props.repository, this.props.dispatcher, path)
 
-  private onTreeViewChanged = (treeView: boolean) => {
-    this.props.dispatcher.setFileTreeView(treeView)
-  }
-
-  private renderFileListHeader(fileCount: number) {
-    return (
-      <div className="file-list-header">
-        {fileCount} changed {fileCount === 1 ? 'file' : 'files'}
-        <FileTreeViewToggle
-          treeView={this.props.fileTreeView}
-          onChange={this.onTreeViewChanged}
-        />
-      </div>
-    )
-  }
-
   private onResize = (width: number) =>
     this.props.dispatcher.setStashedFilesWidth(width)
 
@@ -190,7 +171,6 @@ export class StashDiffViewer extends React.PureComponent<IStashDiffViewerProps> 
             onReset={this.onReset}
             description="Stash file list"
           >
-            {this.renderFileListHeader(files.length)}
             <FileList
               files={files}
               onSelectionChanged={this.onFileSelectionChanged}

@@ -1,4 +1,5 @@
 import * as React from 'react'
+import classNames from 'classnames'
 import { Octicon } from '../octicons'
 import * as octicons from '../octicons/octicons.generated'
 import { Checkbox, CheckboxValue } from './checkbox'
@@ -147,7 +148,7 @@ interface IFileTreeViewToggleProps {
   readonly onChange: (treeView: boolean) => void
 }
 
-/** Header buttons switching a file list between a plain list and a folder tree */
+/** Buttons switching a file list between a plain list and a folder tree */
 export class FileTreeViewToggle extends React.Component<IFileTreeViewToggleProps> {
   private onPathView = () => this.props.onChange(false)
   private onTreeView = () => this.props.onChange(true)
@@ -155,10 +156,10 @@ export class FileTreeViewToggle extends React.Component<IFileTreeViewToggleProps
   public render() {
     const { treeView } = this.props
     return (
-      <div className="file-tree-view-toggle" role="group" aria-label="View as">
+      <div className="file-tree-view-toggle view-mode-switch button-group">
         <Button
           size="small"
-          className={treeView ? undefined : 'active'}
+          className={classNames('button-group-item', { selected: !treeView })}
           onClick={this.onPathView}
           ariaLabel="Plain list"
           ariaPressed={!treeView}
@@ -168,7 +169,7 @@ export class FileTreeViewToggle extends React.Component<IFileTreeViewToggleProps
         </Button>
         <Button
           size="small"
-          className={treeView ? 'active' : undefined}
+          className={classNames('button-group-item', { selected: treeView })}
           onClick={this.onTreeView}
           ariaLabel="Folder tree"
           ariaPressed={treeView}

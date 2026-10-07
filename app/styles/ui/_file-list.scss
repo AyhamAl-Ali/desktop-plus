@@ -118,35 +118,7 @@
 }
 
 .file-tree-view-toggle {
-  display: inline-flex;
+  display: flex;
   flex-shrink: 0;
   margin-left: var(--spacing-half);
-
-  .button-component {
-    display: flex;
-    align-items: center;
-    padding: 0 var(--spacing-half);
-    border-radius: 0;
-    color: var(--text-secondary-color);
-
-    &:first-child {
-      border-radius: var(--border-radius) 0 0 var(--border-radius);
-      border-right: none;
-    }
-
-    &:last-child {
-      border-radius: 0 var(--border-radius) var(--border-radius) 0;
-    }
-
-    &.active {
-      background-color: var(--box-selected-background-color);
-      color: var(--text-color);
-    }
-  }
-}
-
-// The history header is a centered text block rather than a flex row
-.file-list-header .file-tree-view-toggle {
-  float: right;
-  margin-top: 4px;
 }
